@@ -2,7 +2,7 @@
 # vim: set fileencoding=utf-8:
 
 import logging
-import MySQLdb
+#import MySQLdb
 import os
 import sys
 import time
