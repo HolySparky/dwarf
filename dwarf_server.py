@@ -11,7 +11,7 @@ import socket
 
 def main():
     sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(('10.50.8.42', 8001))
+    sock.bind(('0.0.0.0', 8001))
     sock.listen(100)
     while True:  
         connection,address = sock.accept()  
