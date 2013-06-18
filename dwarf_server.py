@@ -12,7 +12,16 @@ import socket
 def main():
     sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('localhost', 8001))
-    sock.listen(5)
+    sock.listen(100)
+    while True:  
+        connection,address = sock.accept()  
+        try:  
+            connection.settimeout(5)  
+            buf = connection.recv(1024)  
+            print "Server Received: %s " %(buf)
+        except socket.timeout:  
+            print 'time out'  
+        connection.close()   
             
 
 if __name__ == '__main__':
