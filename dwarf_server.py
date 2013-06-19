@@ -10,6 +10,15 @@ import time
 import socket
 
 class Flow_Info:
+    def __init__(self):
+        self.src_host = ""
+        self.dst_host = ""
+        self.src_ip = ""
+        self.dst_ip = ""
+
+    def set_host(self, src, dst):
+        self.src_host = src
+        self.dst_host = dst
 
 
 

@@ -11,6 +11,18 @@ import time
 import socket
 
 
+class Flow_Info:
+    def __init__(self):
+        self.src_host = ""
+        self.dst_host = ""
+        self.src_ip = ""
+        self.dst_ip = ""
+
+    def set_host(self, src, dst):
+        self.src_host = src
+        self.dst_host = dst
+
+
 def main():
     config_file = "agent.ini"
     config = ConfigParser.ConfigParser()
@@ -33,10 +45,12 @@ def main():
 
     print "readed: server :" + server_ip + "and port: " + server_port
 
+    flow1 = Flow_Info()
+    flow1.set_host("mao", "la")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
     sock.connect((server_ip, int(server_port)))  
-    sock.send('1')  
+    sock.send(flow1)  
     print sock.recv(1024)  
     sock.close()  
             
