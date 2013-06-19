@@ -9,6 +9,10 @@ import time
 
 import socket
 
+class Flow_Info:
+
+
+
 def main():
     sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(('0.0.0.0', 8001))
