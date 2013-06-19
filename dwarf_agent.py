@@ -54,6 +54,8 @@ def main():
     sock.connect((server_ip, int(server_port)))  
     sock.send(json.dumps(flow2))  
     print sock.recv(1024)  
+    print flow2
+    print json.loads(json.dumps(flow2))
     sock.close()  
             
 
