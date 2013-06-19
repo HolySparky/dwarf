@@ -9,7 +9,7 @@ import sys
 import time
 
 import socket
-
+import simplejson as json
 
 class Flow_Info:
     def __init__(self):
@@ -48,9 +48,11 @@ def main():
     flow1 = Flow_Info()
     flow1.set_host("mao", "la")
 
+    flow2 = {"src_host":"mao", "dst_host":"la"}
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
     sock.connect((server_ip, int(server_port)))  
-    sock.send(flow1)  
+    sock.send(json.dumps(flow2))  
     print sock.recv(1024)  
     sock.close()  
             

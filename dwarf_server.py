@@ -8,6 +8,7 @@ import sys
 import time
 
 import socket
+import simplejson as json
 
 class Flow_Info:
     def __init__(self):
@@ -31,7 +32,8 @@ def main():
         try:  
             connection.settimeout(5)  
             buf = connection.recv(1024)  
-            print "Server Received: %s " %(buf)
+            flow2 = json.loads(buf)
+            print "Server Received: %s " %(flow2)
         except socket.timeout:  
             print 'time out'  
         connection.close()   
