@@ -10,6 +10,7 @@ import time
 
 import socket
 import simplejson as json
+from optparse import OptionParser
 from sqlalchemy.ext.sqlsoup import SqlSoup
 
 class Flow_Info:
@@ -41,10 +42,12 @@ def main():
     try:
         server_ip = config.get("SERVER", "server_ip")
         server_port = config.get("SERVER", "server_port")
+	db_url = config.get("SQL", "sql_connection")
     except Exception, e:
         pass
 
     print "readed: server :" + server_ip + "and port: " + server_port
+    print "db_url : " + db_url
 
     flow1 = Flow_Info()
     flow1.set_host("mao", "la")
@@ -58,6 +61,14 @@ def main():
     print flow2
     print json.loads(json.dumps(flow2))
     sock.close()  
+
+    options = {"sql_connection": db_url}
+    db = SqlSoup(options["sql_connection"])
+    #LOG.info("Connecting to database \"%s\" on %s" %
+
+    ports = db.ports.all()
+    
+    print ports
             
 
 if __name__ == '__main__':
