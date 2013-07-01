@@ -67,6 +67,7 @@ def main():
     #LOG.info("Connecting to database \"%s\" on %s" %
 
     ports = db.ports.all()
+    db.commit()
     
     print ports
             
