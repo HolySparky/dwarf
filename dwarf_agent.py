@@ -26,6 +26,8 @@ class Flow_Info:
 
 
 def main():
+
+    #Reading the ini file to get both server connection and SQL connections
     config_file = "agent.ini"
     config = ConfigParser.ConfigParser()
     try:
@@ -38,7 +40,7 @@ def main():
     server_ip = ""
     server_port = ""
 
-    # Get Dwarf-server parameters
+    # Get Dwarf-server parameters and sql_url
     try:
         server_ip = config.get("SERVER", "server_ip")
         server_port = config.get("SERVER", "server_port")
@@ -49,6 +51,7 @@ def main():
     print "readed: server :" + server_ip + "and port: " + server_port
     print "db_url : " + db_url
 
+    # This is how agent could communicate with server
     flow1 = Flow_Info()
     flow1.set_host("mao", "la")
 
