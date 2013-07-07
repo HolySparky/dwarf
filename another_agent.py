@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # vim: set fileencoding=utf-8:
-
+import ConfigParser
 import logging
 import MySQLdb
 import os
@@ -30,7 +30,7 @@ class Flow_Info:
         self.dst_host = dst
 
 
-def PreConfigur():
+def PreConfigure():
     global guarantees
     #Reading the ini file to get both server connection and SQL connections
     config_file = "agent.ini"
@@ -78,21 +78,7 @@ def PreConfigur():
 	    guarantees[port.port_name]={'0':port.guarantee}
 
     print guarantees
-            
 
-if __name__ == '__main__':
-    main()
-
-
-
-
-
-
-
-OUT_PORT = 'eth1'
-ports = {}
-
-guarantees = {'tap44e21c13-40':{'0':200,'192.168.1.18':150}, 'tap840158bf-03':{'0':600,'192.168.2.14':500}}
 #logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(level=logging.INFO)
 myfile = file("testit.txt", 'w')
@@ -295,12 +281,11 @@ def get_ports():
 	    tx = port_traffic[-3].split(':')[-1]
 	    if tx=='':
 		tx = '0'
-
 	    
 	    if port_id in ports:
 	        ports[port_id].UpdateRates(rx, tx)
 	    else:
-		if port_name.startswith("tap"):
+		if port_name.startswith("tap") or port_name.startswith("qvo"):
 		    ports[port_id] = PortInfo(port_name)
 	   	    ports[port_id].UpdateRates(rx, tx)
 		    if port_name in guarantees:
@@ -388,16 +373,18 @@ def main():
 	global ports
 	flows = []
 	x = 0
+	PreConfigure()
 	while True:
 	    get_ports()
+	    print ports
 #	    get_flows()	
 	    update_port_caps()
 #	    update_flow_caps()
-	    for port_id in ports:
-		if ports[port_id].port_name == "tapbbb7fbd5-c8":
-		    myfile = open('txrate.txt', 'a')
-        	    myfile.write("%s %s\n" %(x,ports[port_id].tx_rate))
-        	    myfile.close()
+	#    for port_id in ports:
+	#	if ports[port_id].port_name == "tapbbb7fbd5-c8":
+	#	    myfile = open('txrate.txt', 'a')
+        #	    myfile.write("%s %s\n" %(x,ports[port_id].tx_rate))
+        #	    myfile.close()
 	    x = x + 0.1
 	    time.sleep(0.1)
 	    
