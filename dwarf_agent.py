@@ -69,10 +69,14 @@ def main():
     db = SqlSoup(options["sql_connection"])
     #LOG.info("Connecting to database \"%s\" on %s" %
 
-    ports = db.ports.all()
+    port_g = db.port_guarantee.all()
     db.commit()
-    
-    print ports
+
+    guarantees = {}
+    for port in port_g:
+	    guarantees[port.port_name]={'0':port.guarantee}
+
+    print guarantees
             
 
 if __name__ == '__main__':
