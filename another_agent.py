@@ -322,13 +322,19 @@ def get_flows():
 		print "adding flows from get flow:", flow_dst
 	
 def get_inflows():
-    print OUT_PORT
-    print OUT_PORT_NAME
     cmd = "ovs-dpctl dump-flows br-int | grep 'in_port(" + OUT_PORT +")' | grep 10.10"
-    print cmd
     tmp = os.popen(cmd).read()
-    print "this is tmp@"
-    print tmp
+    for flow in tmp.split("\n"):
+	flow_info = flow.split(",")
+	flow_dst = ""
+	flow_byte = ""
+	for info in flow_info:
+	    if info.startswith("ipv4"):
+		flow_src = info.split("=")[-1]
+	    if info.startswith(' bytes'):
+		flow_byte = info.split(":")[-1]
+#	if flow_dst != "":
+	
 	
 	
 
