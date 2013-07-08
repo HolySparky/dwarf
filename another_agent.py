@@ -331,6 +331,7 @@ def get_inflows():
 	for info in flow_info:
 	    if info.startswith("ipv4"):
 		flow_src = info.split("=")[-1]
+		print flow_src
 	    if info.startswith(' bytes'):
 		flow_byte = info.split(":")[-1]
 #	if flow_dst != "":
