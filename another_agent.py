@@ -141,119 +141,119 @@ def clear_db_attribute(table_name, record, column):
 class PortInfo:
     
     def __init__(self, name='tap0'):
-	self.port_name = name
+        self.port_name = name
         self.tx_bytes = []
         self.rx_bytes = []
         self.tx_rate = 0
         self.rx_rate = 0
-	self.tx_guarantee = 0
-	self.rx_guarantee = 0
+        self.tx_guarantee = 0
+        self.rx_guarantee = 0
         self.tx_cap = 1000
         self.rx_cap = 1000
-	self.flows = {}
-	self.flow_txg = {}
-	self.flow_rxg = {}
-	#flow_txg = dstIP:guarantee
-	#flow: {dstIP:[bytes, rate, cap]}
+        self.flows = {}
+        self.flow_txg = {}
+        self.flow_rxg = {}
+        #flow_txg = dstIP:guarantee
+        #flow: {dstIP:[bytes, rate, cap]}
 # For flow: inpoty:6,dstIP:192.168.1.18 ---> in TC:      class_id = 1:6   flow_id = 1:618
 
     def UpdateTxRate(self, tx):
-	if len(self.tx_bytes) > 2:
+        if len(self.tx_bytes) > 2:
             self.tx_bytes.pop(0)
         self.tx_bytes.append(int(tx))
-	rate = [-1]
-	for i in xrange(len(self.tx_bytes) - 1):
+        rate = [-1]
+        for i in xrange(len(self.tx_bytes) - 1):
             rate.append(self.tx_bytes[i + 1] - self.tx_bytes[i])
-	rate.sort()
+        rate.sort()
     	#rate_max = self.tx_bytes[-1] - self.tx_bytes[-2]
         #if self.tx_cap >= 0 and rate_max > self.tx_cap:
         #    rate_max = self.tx_cap
-	rate_max = rate[-1] * 10 * 8
-	self.tx_rate = rate_max
-	#if self.port_name =='tapbbb7fbd5-c8':
-	#	myfile = open('txrate.txt', 'a')
-	#	myfile.write("%s\n" %rate_max)
-	#	myfile.close()
+        rate_max = rate[-1] * 10 * 8
+        self.tx_rate = rate_max
+        #if self.port_name =='tapbbb7fbd5-c8':
+        #	myfile = open('txrate.txt', 'a')
+        #	myfile.write("%s\n" %rate_max)
+        #	myfile.close()
 
     def UpdateRxRate(self, rx):
-	if len(self.rx_bytes) > 2:
+        if len(self.rx_bytes) > 2:
             self.rx_bytes.pop(0)
-	self.rx_bytes.append(int(rx))
-	rate = [-1]
-	for i in xrange(len(self.rx_bytes) - 1):
+        self.rx_bytes.append(int(rx))
+        rate = [-1]
+        for i in xrange(len(self.rx_bytes) - 1):
             rate.append(self.rx_bytes[i + 1] - self.rx_bytes[i])
-	rate.sort()
+        rate.sort()
     	rate_max = rate[-1]* 10 * 8
-	self.rx_rate = rate_max
+        self.rx_rate = rate_max
 
     def UpdateRates(self, tx, rx):
-	self.UpdateTxRate(tx)
-	self.UpdateRxRate(rx)
+        self.UpdateTxRate(tx)
+        self.UpdateRxRate(rx)
 	
     def add_flow(self,dstIP,tx_byte):
-	if dstIP in self.flows:
-	    self.flows[dstIP].add_txbyte(tx_byte)
-	else:
-	    self.flows[dstIP] = FlowInfo(dstIP)
-	    self.flows[dstIP].add_txbyte(tx_byte)
+        if dstIP in self.flows:
+            self.flows[dstIP].add_txbyte(tx_byte)
+        else:
+            self.flows[dstIP] = FlowInfo(dstIP)
+            self.flows[dstIP].add_txbyte(tx_byte)
 
     def cap_flows(self):
-	print "start capping flows"
-	used = 0.0
+        print "start capping flows"
+        used = 0.0
         over = 0.0
         spare = 5000
         total = self.tx_cap
-	for fid in self.flows:
-	    print "flow for cap :",fid
-	    self.flows[fid].update()
-	    tx = self.flows[fid].rate * 8
-	    if fid in self.flow_txg:
-		guarantee = self.flow_txg[fid] * 1000 ** 2
-	    else:
-		guarantee = 0
-	    if tx <= guarantee:
-	        used += tx * 1.25 + spare
-	    else:
-                used += tx
-            over += tx - guarantee
-        if over <= 0:
-            over = used 
-	for fid in self.flows:
-	    if fid in self.flow_txg:
+        for fid in self.flows:
+            print "flow for cap :",fid
+            self.flows[fid].update()
+            tx = self.flows[fid].rate * 8
+            if fid in self.flow_txg:
+            guarantee = self.flow_txg[fid] * 1000 ** 2
+            else:
+            guarantee = 0
+            if tx <= guarantee:
+                used += tx * 1.25 + spare
+            else:
+                    used += tx
+                over += tx - guarantee
+            if over <= 0:
+                over = used 
+        for fid in self.flows:
+            if fid in self.flow_txg:
                 guarantee = self.flow_txg[fid] * 1000 ** 2
             else:
                 guarantee = 0
-	    rate = self.flows[fid].rate * 8
-	    cap = guarantee
-	    if rate  > guarantee:
+            rate = self.flows[fid].rate * 8
+            cap = guarantee
+            if rate  > guarantee:
                 cap = min(total, max(guarantee, (rate + max(0, rate - guarantee) / over * (total  - used))))
-	    else:
-	        #cap = rate * 1.25 + spare
-	        cap = guarantee + spare
-	    self.flows[fid].tx_cap = cap
-	    print "flow ------:", fid
-	    print "rate :", self.flows[fid].tx_rate 
-	    print "cap  :", self.flows[fid].tx_cap
-	
+            else:
+                #cap = rate * 1.25 + spare
+                cap = guarantee + spare
+            self.flows[fid].tx_cap = cap
+            print "flow ------:", fid
+            print "rate :", self.flows[fid].tx_rate 
+            print "cap  :", self.flows[fid].tx_cap
+
 	
 
 class FlowInfo:
     def __init__(self,dstIP):
-	self.dst_ip = dstIP
-	self.src_ip = ""
-	self.tx_byte = [0,0]
-	self.tx_rate = 0
-	self.tx_cap = 0
+        self.dst_ip = dstIP
+        self.src_ip = ""
+        self.tx_byte = [0,0]
+        self.tx_rate = 0
+        self.tx_cap = 0
 
     def add_txbyte(self,byte):
-	if len(self.tx_byte.size) <= 2:
-	    self.tx_byte.append(int(byte))
+        if len(self.tx_byte.size) <= 2:
+            self.tx_byte.append(int(byte))
 
     def update(self):
-	self.rate = self.tx_byte[1]-self.tx_byte[0]
-	if self.rate <= 0:
-	    self.rate = 0
-	self.tx_byte.pop(0)
+        self.rate = self.tx_byte[1]-self.tx_byte[0]
+        if self.rate <= 0:
+            self.rate = 0
+        self.tx_byte.pop(0)
  
     
 
