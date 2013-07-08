@@ -315,6 +315,8 @@ def get_flows():
 	        ports[key].add_flow(flow_dst, flow_byte)	
 		print "adding flows from get flow:", flow_dst
 	
+def get_inflows():
+    tmp = os.popen("ovs-dpctl dump-flows br-int | grep 'in_port(" + OUT_PORT +")' | grep 10.10").read()
 	
 	
 
