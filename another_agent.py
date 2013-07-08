@@ -14,7 +14,8 @@ import simplejson as json
 from optparse import OptionParser
 from sqlalchemy.ext.sqlsoup import SqlSoup
 
-OUT_PORT = 'eth1'
+OUT_PORT_NAME = 'int-br-eth2'
+OUT_PORT = "0"
 ports = {}
 guarantees = {}
 
@@ -208,13 +209,13 @@ class PortInfo:
             self.flows[fid].update()
             tx = self.flows[fid].rate * 8
             if fid in self.flow_txg:
-            guarantee = self.flow_txg[fid] * 1000 ** 2
+	        guarantee = self.flow_txg[fid] * 1000 ** 2
             else:
-            guarantee = 0
+                guarantee = 0
             if tx <= guarantee:
                 used += tx * 1.25 + spare
             else:
-                    used += tx
+                used += tx
                 over += tx - guarantee
             if over <= 0:
                 over = used 
@@ -264,6 +265,8 @@ class FlowInfo:
 
 def get_ports():
 	global ports
+	global OUT_PORT
+	global OUT_PORT_NAME
 	args = ['show', '-s']
 	raw_port = run_dpctl(args)
 	port_map = {}
@@ -285,7 +288,7 @@ def get_ports():
 	    if port_id in ports:
 	        ports[port_id].UpdateRates(rx, tx)
 	    else:
-		if port_name.startswith("tap") or port_name.startswith("qvo"):
+		if port_name.startswith("qvo"):
 		    ports[port_id] = PortInfo(port_name)
 	   	    ports[port_id].UpdateRates(rx, tx)
 		    if port_name in guarantees:
@@ -294,6 +297,9 @@ def get_ports():
 				ports[port_id].tx_guarantee = guarantees[port_name][i]
 			    else:
 				ports[port_id].flow_txg[i] = guarantees[port_name][i]    
+		elif port_name == OUT_PORT_NAME:
+		    OUT_PORT = port_id
+		    print "yeah the out port is " + port_id
 		
 #guarantees = {'tap44e21c13-40':[200,{192.168.1.18:150}], 'tap840158bf-03':[600,{192.168.2.10:500}]}
 
@@ -316,7 +322,13 @@ def get_flows():
 		print "adding flows from get flow:", flow_dst
 	
 def get_inflows():
-    tmp = os.popen("ovs-dpctl dump-flows br-int | grep 'in_port(" + OUT_PORT +")' | grep 10.10").read()
+    print OUT_PORT
+    print OUT_PORT_NAME
+    cmd = "ovs-dpctl dump-flows br-int | grep 'in_port(" + OUT_PORT +")' | grep 10.10"
+    print cmd
+    tmp = os.popen(cmd).read()
+    print "this is tmp@"
+    print tmp
 	
 	
 
@@ -358,9 +370,9 @@ def update_port_caps():
 	    #cap = rate * 1.25 + spare
 	    cap = guarantee + spare
 	ports[pid].tx_cap = cap
-	print "Port:   " + ports[pid].port_name
-	print "rate ", (rate)
-	print "cap  ", (cap)
+#	print "Port:   " + ports[pid].port_name
+#	print "rate ", (rate)
+#	print "cap  ", (cap)
 	tc_tap_change(pid,cap)
         #set_interface_ingress_policing_rate(tap, cap)
 
@@ -379,8 +391,8 @@ def main():
 	while True:
 	    get_ports()
 	    print ports
-#	    get_flows()	
-	    update_port_caps()
+	    get_inflows()	
+#	    update_port_caps()
 #	    update_flow_caps()
 	#    for port_id in ports:
 	#	if ports[port_id].port_name == "tapbbb7fbd5-c8":
