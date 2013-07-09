@@ -16,6 +16,7 @@ from sqlalchemy.ext.sqlsoup import SqlSoup
 
 OUT_PORT_NAME = 'int-br-eth2'
 OUT_PORT = "0"
+EXT_PORT = "eth2"
 ports = {}
 guarantees = {}
 
@@ -110,11 +111,12 @@ def run_tc(args):
 def tc_tap_change(pid, rate):
     classid = "1:"+ str(pid)
     rate = str(rate / 1000)+"kbit" 
-    tmp = os.popen("tc class show dev "+ OUT_PORT +" | grep "+ classid +" | wc -l").read()
+    tmp = os.popen("tc class show dev "+ EXT_PORT +" | grep "+ classid +" | wc -l").read()
+    print tmp
     if int(tmp) > 0:
-	os.popen("tc class change dev "+ OUT_PORT + ' parent 1:1 classid ' + classid + ' htb rate ' + str(rate))
+	os.popen("tc class change dev "+ EXT_PORT + ' parent 1:1 classid ' + classid + ' htb rate ' + str(rate))
     else:
-	os.popen("tc class add dev "+ OUT_PORT + ' parent 1:1 classid ' + classid + ' htb rate ' + str(rate))
+	os.popen("tc class add dev "+ EXT_PORT + ' parent 1:1 classid ' + classid + ' htb rate ' + str(rate))
 #tc class change dev eth1 parent 1:1 classid 1:6 htb rate 600mbit
 
 def tc_flow_change(pid, flow_ip, rate):
@@ -169,7 +171,7 @@ class PortInfo:
     	#rate_max = self.tx_bytes[-1] - self.tx_bytes[-2]
         #if self.tx_cap >= 0 and rate_max > self.tx_cap:
         #    rate_max = self.tx_cap
-        rate_max = rate[-1] * 10 * 8
+        rate_max = rate[-1] * 8
         self.tx_rate = rate_max
         #if self.port_name =='tapbbb7fbd5-c8':
         #	myfile = open('txrate.txt', 'a')
@@ -184,7 +186,7 @@ class PortInfo:
         for i in xrange(len(self.rx_bytes) - 1):
             rate.append(self.rx_bytes[i + 1] - self.rx_bytes[i])
         rate.sort()
-    	rate_max = rate[-1]* 10 * 8
+    	rate_max = rate[-1] * 8
         self.rx_rate = rate_max
 
     def UpdateRates(self, tx, rx):
@@ -376,9 +378,9 @@ def update_port_caps():
 	    #cap = rate * 1.25 + spare
 	    cap = guarantee + spare
 	ports[pid].tx_cap = cap
-#	print "Port:   " + ports[pid].port_name
-#	print "rate ", (rate)
-#	print "cap  ", (cap)
+	print "Port:   " + ports[pid].port_name
+	print "rate ", (rate)
+	print "cap  ", (cap)
 	tc_tap_change(pid,cap)
         #set_interface_ingress_policing_rate(tap, cap)
 
@@ -396,9 +398,8 @@ def main():
 	PreConfigure()
 	while True:
 	    get_ports()
-	    print ports
 	    get_inflows()	
-#	    update_port_caps()
+	    update_port_caps()
 #	    update_flow_caps()
 	#    for port_id in ports:
 	#	if ports[port_id].port_name == "tapbbb7fbd5-c8":
@@ -406,7 +407,7 @@ def main():
         #	    myfile.write("%s %s\n" %(x,ports[port_id].tx_rate))
         #	    myfile.close()
 	    x = x + 0.1
-	    time.sleep(0.1)
+	    time.sleep(1)
 	    
 
 if __name__ == '__main__':
