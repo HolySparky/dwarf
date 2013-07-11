@@ -65,17 +65,6 @@ def PreConfigure():
     print "readed: server :" + server_ip + "and port: " + server_port
     print "db_url : " + db_url
 
-    # This is how agent could communicate with server
-    flow1 = Flow_Info()
-    flow1.set_host("mao", "la")
-    flow2 = {"src_host":"mao", "dst_host":"la"}
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
-    sock.connect((server_ip, int(server_port)))  
-    sock.send(json.dumps(flow2))  
-    print sock.recv(1024)  
-    print flow2
-    print json.loads(json.dumps(flow2))
-    sock.close()  
 
     #This is to get all guarantees from the sql in the dwarf-server
     options = {"sql_connection": db_url}
