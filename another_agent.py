@@ -21,6 +21,9 @@ ports = {}
 #ports = {port_name : Port_Info}
 guarantees = {}
 ip_ports = {}
+server_ip = ""
+server_port = ""
+db_url = ""
 
 class Flow_Info:
     def __init__(self):
@@ -37,6 +40,8 @@ class Flow_Info:
 def PreConfigure():
     global guarantees
     global ip_ports
+    global server_ip
+    global server_port
     #Reading the ini file to get both server connection and SQL connections
     config_file = "agent.ini"
     config = ConfigParser.ConfigParser()
@@ -204,18 +209,18 @@ class PortInfo:
         self.UpdateTxRate(tx)
         self.UpdateRxRate()
 	
-    def add_flow(self,dstIP,tx_byte):
+    def add_flow(self,srcIP, dstIP,tx_byte):
         if dstIP in self.flows:
             self.flows[dstIP].add_txbyte(tx_byte)
         else:
-            self.flows[dstIP] = FlowInfo(dstIP)
+            self.flows[dstIP] = FlowInfo(srcIP,dstIP)
             self.flows[dstIP].add_txbyte(tx_byte)
 
-    def add_in_flow(self, srcIP, tx_byte):
+    def add_in_flow(self, srcIP, dstIP,tx_byte):
         if srcIP in self.in_flows:
             self.in_flows[srcIP].add_txbyte(tx_byte)
         else:
-            self.in_flows[srcIP] = FlowInfo(srcIP)
+            self.in_flows[srcIP] = FlowInfo(srcIP, dstIP)
             self.in_flows[srcIP].add_txbyte(tx_byte)
 
  
@@ -261,12 +266,13 @@ class PortInfo:
 	
 
 class FlowInfo:
-    def __init__(self,dstIP):
+    def __init__(self,srcIP,dstIP):
         self.dst_ip = dstIP
         self.src_ip = ""
         self.tx_bytes = [0,0]
         self.tx_rate = 0
         self.tx_cap = 0
+
 
     def add_txbyte(self,tx):
 	if len(self.tx_bytes) > 2:
@@ -344,11 +350,12 @@ def get_flows():
 	    flow_byte = ""
 	    for info in flow_info:
 		if info.startswith("ipv4"):
+		    flow_src = info.split("=")[-1]
 		    flow_dst = flow_info[(flow_info.index(info) + 1)].split("=")[-1]
 		if info.startswith(' bytes'):
 		    flow_byte = info.split(":")[-1]
 	    if flow_dst != "":
-	        ports[key].add_flow(flow_dst, flow_byte)	
+	        ports[key].add_flow(flow_src, flow_dst, flow_byte)	
 		print "adding flows from get flow:", flow_dst
 	
 def get_inflows():
@@ -377,7 +384,7 @@ def get_inflows():
 	    print dst_port_name
 	    if dst_port_name in ports:
 		print "adding flows now!!!"
-		ports[dst_port_name].add_in_flow(flow_src, flow_byte)
+		ports[dst_port_name].add_in_flow(flow_src, flow_dst, flow_byte)
 
 #######################################################################
 
@@ -439,11 +446,29 @@ def in_flow_feedback():
 	    sup_flag = 1
 	else:
 	    credit += rx
+
     if sup_flag != 0 and (total<credit):
 	over = credit - total
 	supression = over/used
-    print "credit "+ str(credit)
-    print "supression "+ str(supression)
+        print "credit "+ str(credit)
+        print "supression "+ str(supression)
+        #send supression message to dwarf_server
+    for port in ports:
+      	guarantee = ports[port].guarantee * 1000 ** 2
+    	rx = ports[port].rx_rate
+	for flow in ports[port].in_flows:
+		if ports[port].in_flows[flow].tx_rate > guarantee:
+		#send the signal
+	            send_flow = {"src_ip":flow, "supression":supression}
+	            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
+	            sock.connect((server_ip, int(server_port)))  
+	            sock.send(json.dumps(send_flow))  
+	            print sock.recv(1024)  
+	            print send_flow
+	            print json.loads(json.dumps(send_flow))
+	            sock.close()  
+
+    
 	
 
 	#if ports[port].in_flows != {}:
