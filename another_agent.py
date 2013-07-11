@@ -19,6 +19,7 @@ OUT_PORT = "0"
 EXT_PORT = "eth2"
 ports = {}
 guarantees = {}
+ip_ports = {}
 
 class Flow_Info:
     def __init__(self):
@@ -34,6 +35,7 @@ class Flow_Info:
 
 def PreConfigure():
     global guarantees
+    global ip_ports
     #Reading the ini file to get both server connection and SQL connections
     config_file = "agent.ini"
     config = ConfigParser.ConfigParser()
@@ -72,14 +74,15 @@ def PreConfigure():
     #This is to get all guarantees from the sql in the dwarf-server
     options = {"sql_connection": db_url}
     db = SqlSoup(options["sql_connection"])
-    #LOG.info("Connecting to database \"%s\" on %s" %
     port_g = db.port_guarantee.all()
+    ips = db.ip_port.all()
     db.commit()
-
     for port in port_g:
 	    guarantees[port.port_name]={'0':port.guarantee}
-
+    for ip in ips:
+	ip_ports[ip.ip] = {"port":ip.port_name, "host":ip.host_ip}
     print guarantees
+    print ip_ports
 
 #logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(level=logging.INFO)
@@ -154,10 +157,12 @@ class PortInfo:
         self.tx_cap = 1000
         self.rx_cap = 1000
         self.flows = {}
+	self.in_flows = {}
         self.flow_txg = {}
         self.flow_rxg = {}
         #flow_txg = dstIP:guarantee
         #flow: {dstIP:[bytes, rate, cap]}
+	#in_flow: {srcIP:[bytes, rate]}
 # For flow: inpoty:6,dstIP:192.168.1.18 ---> in TC:      class_id = 1:6   flow_id = 1:618
 
     def UpdateTxRate(self, tx):
@@ -199,6 +204,14 @@ class PortInfo:
         else:
             self.flows[dstIP] = FlowInfo(dstIP)
             self.flows[dstIP].add_txbyte(tx_byte)
+
+    def add_in_flow(self, srcIP, tx_byte):
+        if srcIP in self.in_flows:
+            self.flows[srcIP].add_txbyte(tx_byte)
+        else:
+            self.flows[srcIP] = FlowInfo(srcIP)
+            self.flows[srcIP].add_txbyte(tx_byte)
+ 
 
     def cap_flows(self):
         print "start capping flows"
@@ -244,13 +257,21 @@ class FlowInfo:
     def __init__(self,dstIP):
         self.dst_ip = dstIP
         self.src_ip = ""
-        self.tx_byte = [0,0]
+        self.tx_bytes = [0,0]
         self.tx_rate = 0
         self.tx_cap = 0
 
-    def add_txbyte(self,byte):
-        if len(self.tx_byte.size) <= 2:
-            self.tx_byte.append(int(byte))
+    def add_txbyte(self,tx):
+	if len(self.tx_bytes) > 2:
+            self.tx_bytes.pop(0)
+        self.tx_bytes.append(int(tx))
+        rate = [-1]
+        for i in xrange(len(self.tx_bytes) - 1):
+            rate.append(self.tx_bytes[i + 1] - self.tx_bytes[i])
+        rate.sort()
+    	rate_max = rate[-1] * 8
+        self.tx_rate = rate_max
+	
 
     def update(self):
         self.rate = self.tx_byte[1]-self.tx_byte[0]
@@ -324,18 +345,32 @@ def get_flows():
 		print "adding flows from get flow:", flow_dst
 	
 def get_inflows():
+    global ports
+    global ip_ports
     cmd = "ovs-dpctl dump-flows br-int | grep 'in_port(" + OUT_PORT +")' | grep 10.10"
+    print cmd
     tmp = os.popen(cmd).read()
     for flow in tmp.split("\n"):
 	flow_info = flow.split(",")
+	flow_src = ""
 	flow_dst = ""
 	flow_byte = ""
 	for info in flow_info:
+	#get flow src ip and byte info
 	    if info.startswith("ipv4"):
 		flow_src = info.split("=")[-1]
-		print flow_src
+		flow_dst = flow_info[(flow_info.index(info) + 1)].split("=")[-1]
+		print "in_flow: src--" + flow_src + "dst--" + flow_dst
 	    if info.startswith(' bytes'):
 		flow_byte = info.split(":")[-1]
+	if flow_dst in ip_ports:
+	    print "flow_stc in ip_ports list"
+	    dst_port_name = ip_ports[flow_dst]["port"] 
+	    print dst_port_name
+	    for key in ports:
+		if ports[key].port_name == dst_port_name:
+		    print "adding flows now!!!"
+		    ports[key].add_in_flow(flow_src, flow_byte)
 #	if flow_dst != "":
 	
 	
@@ -379,9 +414,9 @@ def update_port_caps():
 	    #cap = rate * 1.25 + spare
 	    cap = guarantee + spare
 	ports[pid].tx_cap = cap
-	print "Port:   " + ports[pid].port_name
-	print "rate ", (rate)
-	print "cap  ", (cap)
+#	print "Port:   " + ports[pid].port_name
+#	print "rate ", (rate)
+#	print "cap  ", (cap)
 	tc_tap_change(pid,cap)
         #set_interface_ingress_policing_rate(tap, cap)
 
