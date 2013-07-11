@@ -18,6 +18,7 @@ OUT_PORT_NAME = 'int-br-eth2'
 OUT_PORT = "0"
 EXT_PORT = "eth2"
 ports = {}
+#ports = {port_name : Port_Info}
 guarantees = {}
 ip_ports = {}
 
@@ -146,7 +147,8 @@ def clear_db_attribute(table_name, record, column):
 #Class: Ports and Flows
 class PortInfo:
     
-    def __init__(self, name='tap0'):
+    def __init__(self, pid="0",name='tap0'):
+	self.port_id = pid
         self.port_name = name
         self.tx_bytes = []
         self.rx_bytes = []
@@ -308,18 +310,18 @@ def get_ports():
 	    if tx=='':
 		tx = '0'
 	    
-	    if port_id in ports:
-	        ports[port_id].UpdateRates(rx, tx)
+	    if port_name in ports:
+	        ports[port_name].UpdateRates(rx, tx)
 	    else:
 		if port_name.startswith("qvo"):
-		    ports[port_id] = PortInfo(port_name)
-	   	    ports[port_id].UpdateRates(rx, tx)
+		    ports[port_name] = PortInfo(port_id,port_name)
+	   	    ports[port_name].UpdateRates(rx, tx)
 		    if port_name in guarantees:
 			for i in guarantees[port_name]:
 			    if i == '0':
-				ports[port_id].tx_guarantee = guarantees[port_name][i]
+				ports[port_name].tx_guarantee = guarantees[port_name][i]
 			    else:
-				ports[port_id].flow_txg[i] = guarantees[port_name][i]    
+				ports[port_name].flow_txg[i] = guarantees[port_name][i]    
 		elif port_name == OUT_PORT_NAME:
 		    OUT_PORT = port_id
 		    print "yeah the out port is " + port_id
@@ -367,10 +369,9 @@ def get_inflows():
 	    print "flow_stc in ip_ports list"
 	    dst_port_name = ip_ports[flow_dst]["port"] 
 	    print dst_port_name
-	    for key in ports:
-		if ports[key].port_name == dst_port_name:
-		    print "adding flows now!!!"
-		    ports[key].add_in_flow(flow_src, flow_byte)
+	    if dst_port_name in ports:
+		print "adding flows now!!!"
+		ports[dst_port_name].add_in_flow(flow_src, flow_byte)
 #	if flow_dst != "":
 	
 	
@@ -392,11 +393,11 @@ def update_port_caps():
     over = 0.0
     spare = 5000
     total = 1000 ** 3
-    for pid in ports:
+    for port in ports:
 	print "-----------"
 	#all in bits
-	tx = ports[pid].tx_rate
-	guarantee = ports[pid].tx_guarantee * 1000 ** 2
+	tx = ports[port].tx_rate
+	guarantee = ports[port].tx_guarantee * 1000 ** 2
 	if tx <= guarantee:
 	    used += tx * 1.25 + spare
 	else:
@@ -404,26 +405,26 @@ def update_port_caps():
         over += tx - guarantee
     if over <= 0:
         over = used
-    for pid in ports:
-	guarantee = ports[pid].tx_guarantee * 1000 ** 2
+    for port in ports:
+	guarantee = ports[port].tx_guarantee * 1000 ** 2
         cap = guarantee
-	rate = ports[pid].tx_rate
+	rate = ports[port].tx_rate
         if rate  > guarantee:
             cap = min(total, max(guarantee, (rate + max(0, rate - guarantee) / over * (total  - used))))
 	else:
 	    #cap = rate * 1.25 + spare
 	    cap = guarantee + spare
-	ports[pid].tx_cap = cap
+	ports[port].tx_cap = cap
 #	print "Port:   " + ports[pid].port_name
 #	print "rate ", (rate)
 #	print "cap  ", (cap)
-	tc_tap_change(pid,cap)
+	tc_tap_change(ports[port].port_id,cap)
         #set_interface_ingress_policing_rate(tap, cap)
 
 def update_flow_caps():
 	global ports
-	for pid in ports:
-		ports[pid].cap_flows()
+	for port in ports:
+		ports[port].cap_flows()
     
 
 
