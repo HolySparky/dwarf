@@ -154,7 +154,7 @@ class PortInfo:
         self.rx_bytes = []
         self.tx_rate = 0
         self.rx_rate = 0
-        self.tx_guarantee = 0
+        self.guarantee = 0
         self.rx_guarantee = 0
         self.tx_cap = 1000
         self.rx_cap = 1000
@@ -185,20 +185,24 @@ class PortInfo:
         #	myfile.write("%s\n" %rate_max)
         #	myfile.close()
 
-    def UpdateRxRate(self, rx):
-        if len(self.rx_bytes) > 2:
-            self.rx_bytes.pop(0)
-        self.rx_bytes.append(int(rx))
-        rate = [-1]
-        for i in xrange(len(self.rx_bytes) - 1):
-            rate.append(self.rx_bytes[i + 1] - self.rx_bytes[i])
-        rate.sort()
-    	rate_max = rate[-1] * 8
-        self.rx_rate = rate_max
+#    def UpdateRxRate(self, rx):
+#        if len(self.rx_bytes) > 2:
+#            self.rx_bytes.pop(0)
+#        self.rx_bytes.append(int(rx))
+#        rate = [-1]
+#        for i in xrange(len(self.rx_bytes) - 1):
+#            rate.append(self.rx_bytes[i + 1] - self.rx_bytes[i])
+#        rate.sort()
+#    	rate_max = rate[-1] * 8
+#        self.rx_rate = rate_max
+    def UpdateRxRate(self):
+        self.rx_rate = 0
+	for flow in self.in_flows:
+	    self.rx_rate += int(self.in_flows[flow].tx_rate)
 
     def UpdateRates(self, tx, rx):
         self.UpdateTxRate(tx)
-        self.UpdateRxRate(rx)
+        self.UpdateRxRate()
 	
     def add_flow(self,dstIP,tx_byte):
         if dstIP in self.flows:
@@ -209,10 +213,11 @@ class PortInfo:
 
     def add_in_flow(self, srcIP, tx_byte):
         if srcIP in self.in_flows:
-            self.flows[srcIP].add_txbyte(tx_byte)
+            self.in_flows[srcIP].add_txbyte(tx_byte)
         else:
-            self.flows[srcIP] = FlowInfo(srcIP)
-            self.flows[srcIP].add_txbyte(tx_byte)
+            self.in_flows[srcIP] = FlowInfo(srcIP)
+            self.in_flows[srcIP].add_txbyte(tx_byte)
+
  
 
     def cap_flows(self):
@@ -319,7 +324,7 @@ def get_ports():
 		    if port_name in guarantees:
 			for i in guarantees[port_name]:
 			    if i == '0':
-				ports[port_name].tx_guarantee = guarantees[port_name][i]
+				ports[port_name].guarantee = guarantees[port_name][i]
 			    else:
 				ports[port_name].flow_txg[i] = guarantees[port_name][i]    
 		elif port_name == OUT_PORT_NAME:
@@ -365,6 +370,7 @@ def get_inflows():
 		print "in_flow: src--" + flow_src + "dst--" + flow_dst
 	    if info.startswith(' bytes'):
 		flow_byte = info.split(":")[-1]
+	#write new bytes info into port-flow 
 	if flow_dst in ip_ports:
 	    print "flow_stc in ip_ports list"
 	    dst_port_name = ip_ports[flow_dst]["port"] 
@@ -372,16 +378,6 @@ def get_inflows():
 	    if dst_port_name in ports:
 		print "adding flows now!!!"
 		ports[dst_port_name].add_in_flow(flow_src, flow_byte)
-#	if flow_dst != "":
-	
-	
-	
-
-#	args = ['dump-flows', 'br-int ']
-#	raw_flow = run_dpctl(args)
-#	print "Now get flows:::"
-#	print raw_flow
-#	return raw_flow
 
 #######################################################################
 
@@ -394,10 +390,10 @@ def update_port_caps():
     spare = 5000
     total = 1000 ** 3
     for port in ports:
-	print "-----------"
+	#print "-----------"
 	#all in bits
 	tx = ports[port].tx_rate
-	guarantee = ports[port].tx_guarantee * 1000 ** 2
+	guarantee = ports[port].guarantee * 1000 ** 2
 	if tx <= guarantee:
 	    used += tx * 1.25 + spare
 	else:
@@ -406,7 +402,7 @@ def update_port_caps():
     if over <= 0:
         over = used
     for port in ports:
-	guarantee = ports[port].tx_guarantee * 1000 ** 2
+	guarantee = ports[port].guarantee * 1000 ** 2
         cap = guarantee
 	rate = ports[port].tx_rate
         if rate  > guarantee:
@@ -426,7 +422,37 @@ def update_flow_caps():
 	for port in ports:
 		ports[port].cap_flows()
     
+def in_flow_feedback():
+ 	#print the flow rate
+    retrive = 0
+    sup_flag = 0
+    credit = 0
+    used = 0
+    total = 1000 ** 3
+    supression = 0
+    for port in ports:
+	guarantee = ports[port].guarantee * 1000 ** 2
+	rx = ports[port].rx_rate
+	used += rx
+	if rx > 5000000 and rx < guarantee:
+	    credit += guarantee
+	    sup_flag = 1
+	else:
+	    credit += rx
+    if sup_flag != 0 and (total<credit):
+	over = credit - total
+	supression = over/used
+    print "credit "+ str(credit)
+    print "supression "+ str(supression)
+	
 
+	#if ports[port].in_flows != {}:
+	#    for inflow in ports[port].in_flows:
+	#	print "src: " + inflow
+	#	print ports[port].in_flows[inflow].tx_rate
+
+   
+    
 
 def main():
 	global ports
@@ -437,6 +463,7 @@ def main():
 	    get_ports()
 	    get_inflows()	
 	    update_port_caps()
+	    in_flow_feedback()
 #	    update_flow_caps()
 	#    for port_id in ports:
 	#	if ports[port_id].port_name == "tapbbb7fbd5-c8":
