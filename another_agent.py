@@ -8,11 +8,13 @@ import sys
 import time
 
 import subprocess
+import threading
 
 import socket
 import simplejson as json
 from optparse import OptionParser
 from sqlalchemy.ext.sqlsoup import SqlSoup
+
 
 OUT_PORT_NAME = 'int-br-eth2'
 OUT_PORT = "0"
@@ -23,7 +25,10 @@ guarantees = {}
 ip_ports = {}
 server_ip = ""
 server_port = ""
+my_ip = ""
 db_url = ""
+supression = {}
+
 
 class Flow_Info:
     def __init__(self):
@@ -42,6 +47,8 @@ def PreConfigure():
     global ip_ports
     global server_ip
     global server_port
+    global db_url
+    global my_ip
     #Reading the ini file to get both server connection and SQL connections
     config_file = "agent.ini"
     config = ConfigParser.ConfigParser()
@@ -60,6 +67,7 @@ def PreConfigure():
         server_ip = config.get("SERVER", "server_ip")
         server_port = config.get("SERVER", "server_port")
         db_url = config.get("SQL", "sql_connection")
+        my_ip = config.get("AGENT", "agent_ip")
     except Exception, e:
         pass
     print "readed: server :" + server_ip + "and port: " + server_port
@@ -460,34 +468,51 @@ def in_flow_feedback():
                     sock.close()  
 
     
-        
-
+#def get_supression():
+#    global supression{} 
+#    global guarantees
+#    global ip_ports
+#    global server_ip
+#    global server_port
+#    global db_url
+#    global my_ip
+#    options = {"sql_connection": db_url}
+#    db = SqlSoup(options["sql_connection"])
+#    supressions = db.supression.all()
+#    db.commit()
+#    for supress in supressions:
+#        print supress.src_ip
+#        if supress.src_ip in ip_ports:
+#            if ip_ports[supress.src_ip] == my_ip 
+#                print "this is mine"
+#        
+#
         #if ports[port].in_flows != {}:
         #    for inflow in ports[port].in_flows:
         #       print "src: " + inflow
         #       print ports[port].in_flows[inflow].tx_rate
 
    
-    
-
 def main():
-        global ports
-        flows = []
-        x = 0
-        PreConfigure()
-        while True:
-            get_ports()
-            get_inflows()       
-            update_port_caps()
-            in_flow_feedback()
-#           update_flow_caps()
-        #    for port_id in ports:
-        #       if ports[port_id].port_name == "tapbbb7fbd5-c8":
-        #           myfile = open('txrate.txt', 'a')
-        #           myfile.write("%s %s\n" %(x,ports[port_id].tx_rate))
-        #           myfile.close()
-            x = x + 0.1
-            time.sleep(1)
+    global ports
+    flows = []
+    x = 0
+    PreConfigure()
+    while True:
+#        get_supression()
+        get_ports()
+        get_inflows()       
+        update_port_caps()
+        in_flow_feedback()
+    #    update_flow_caps()
+        for port_id in ports:
+           if ports[port_id].port_name == "tapbbb7fbd5-c8":
+               myfile = open('txrate.txt', 'a')
+               myfile.write("%s %s\n" %(x,ports[port_id].tx_rate))
+               myfile.close()
+        x = x + 0.1
+        time.sleep(1)
+
             
 
 if __name__ == '__main__':
