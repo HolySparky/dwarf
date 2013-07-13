@@ -23,6 +23,8 @@ ports = {}
 #ports = {port_name : Port_Info}
 guarantees = {}
 ip_ports = {}
+#ip_ports[ip.ip] = {"port_name":ip.port_name, "host_ip":ip.host_ip}
+supressions = {}
 server_ip = ""
 server_port = ""
 my_ip = ""
@@ -83,7 +85,7 @@ def PreConfigure():
     for port in port_g:
             guarantees[port.port_name]={'0':port.guarantee}
     for ip in ips:
-        ip_ports[ip.ip] = {"port":ip.port_name, "host":ip.host_ip}
+        ip_ports[ip.ip] = {"port_name":ip.port_name, "host_ip":ip.host_ip}
     print guarantees
     print ip_ports
 
@@ -115,15 +117,38 @@ def run_tc(args):
 
 
 def tc_tap_change(pid, rate):
+    print "tc----------"+ pid
     classid = "1:"+ str(pid)
     rate = str(rate / 1000)+"kbit" 
-    tmp = os.popen("tc class show dev "+ EXT_PORT +" | grep "+ classid +" | wc -l").read()
-    print tmp
-    if int(tmp) > 0:
-        os.popen("tc class change dev "+ EXT_PORT + ' parent 1:1 classid ' + classid + ' htb rate ' + str(rate))
-    else:
-        os.popen("tc class add dev "+ EXT_PORT + ' parent 1:1 classid ' + classid + ' htb rate ' + str(rate))
+    os.popen("tc class change dev "+ EXT_PORT + ' parent 1:1 classid ' + classid + ' htb rate ' + str(rate))
 #tc class change dev eth1 parent 1:1 classid 1:6 htb rate 600mbit
+#tc filter add dev $1 protocol ip parent 1:0 prio 2 u32 match ip dst 192.168.2.0/24 flowid 1:8
+
+def init_tc():
+    for port in ports:
+        port_name = port
+        pid = ports[port].port_id
+        classid = "1:"+str(pid)
+        port_ip = ""
+        print "tc:"+classid
+        for ip in ip_ports:
+            if ip_ports[ip]["port_name"] == port_name:
+                port_ip = ip
+        if port_ip != "":
+            print "examing~~~~"
+            cmd = "tc class show dev "+ EXT_PORT +" | grep "+ classid +" | wc -l"
+            print cmd
+            tmp = os.popen(cmd).read()
+            if int(tmp) <= 0:
+                cmd = "tc class add dev "+ EXT_PORT + ' parent 1:1 classid ' + classid + ' htb rate 5000'
+                os.popen(cmd)
+            flow_tmp = os.popen("tc filter show dev "+ EXT_PORT +" | grep "+ classid +" | wc -l").read()
+            print flow_tmp
+            if int(flow_tmp) <= 0:
+                print "adding this flowid"
+                cmd = "tc filter add dev "+ EXT_PORT + " protocol ip parent 1:0 prio 2 u32 match ip src "+ port_ip +" flowid "+ classid
+                print cmd
+                os.popen(cmd)
 
 def tc_flow_change(pid, flow_ip, rate):
     flow_id = "1:"+pid + flow_ip.split(".")[-1]
@@ -379,7 +404,7 @@ def get_inflows():
         #write new bytes info into port-flow 
         if flow_dst in ip_ports:
             print "flow_stc in ip_ports list"
-            dst_port_name = ip_ports[flow_dst]["port"] 
+            dst_port_name = ip_ports[flow_dst]["port_name"] 
             print dst_port_name
             if dst_port_name in ports:
                 print "adding flows now!!!"
@@ -417,9 +442,12 @@ def update_port_caps():
             #cap = rate * 1.25 + spare
             cap = guarantee + spare
         ports[port].tx_cap = cap
-#       print "Port:   " + ports[pid].port_name
-#       print "rate ", (rate)
-#       print "cap  ", (cap)
+        if port in supressions:
+            print "capping supression "
+            cap = cap * ( 1 - int(supressions[p_name])/100) + spare
+        print "Port:   " + port
+        print "rate ", (rate)
+        print "cap  ", (cap)
         tc_tap_change(ports[port].port_id,cap)
         #set_interface_ingress_policing_rate(tap, cap)
 
@@ -448,7 +476,7 @@ def in_flow_feedback():
 
     if sup_flag != 0 and (total<credit):
         over = credit - total
-        supression = over/used
+        supression = int(over/used * 100)
         print "credit "+ str(credit)
         print "supression "+ str(supression)
         #send supression message to dwarf_server
@@ -467,30 +495,33 @@ def in_flow_feedback():
                     print json.loads(json.dumps(send_flow))
                     sock.close()  
 
-    
-#def get_supression():
-#    global supression{} 
-#    global guarantees
-#    global ip_ports
-#    global server_ip
-#    global server_port
-#    global db_url
-#    global my_ip
-#    options = {"sql_connection": db_url}
-#    db = SqlSoup(options["sql_connection"])
-#    supressions = db.supression.all()
-#    db.commit()
-#    for supress in supressions:
-#        print supress.src_ip
-#        if supress.src_ip in ip_ports:
-#            if ip_ports[supress.src_ip] == my_ip 
-#                print "this is mine"
-#        
-#
-        #if ports[port].in_flows != {}:
-        #    for inflow in ports[port].in_flows:
-        #       print "src: " + inflow
-        #       print ports[port].in_flows[inflow].tx_rate
+def getSupression():
+    global db_url
+    global supressions
+    global ports
+    global ip_ports
+#This is to get all guarantees from the sql in the dwarf-server
+    options = {"sql_connection": db_url}
+    db = SqlSoup(options["sql_connection"])
+    sup_info = db.supression.all()
+    c_time = int(time.time())
+    db.commit()
+    for sup in sup_info:
+        src_ip = sup.src_ip
+        port_name = ip_ports[src_ip]["port_name"]
+        print "getting db"
+        print port_name
+        for pid in ports:
+            if port_name == ports[pid].port_name:
+                print "this supression is mine"
+                supress = sup.supression
+                o_time = sup.time
+                if port_name in supressions:
+                    if c_time < (o_time + 10):
+                        print "wow, a new one!" 
+                        supressions[port_name]=supress
+                    else:
+                        del supressions[port_name]
 
    
 def main():
@@ -498,8 +529,12 @@ def main():
     flows = []
     x = 0
     PreConfigure()
+    get_ports()
+    print "initing tc"
+    init_tc()
+    print "done tc init"
     while True:
-#        get_supression()
+        getSupression()
         get_ports()
         get_inflows()       
         update_port_caps()
