@@ -15,11 +15,13 @@ from sqlalchemy.ext.sqlsoup import SqlSoup
 ip_ports = {}
 server_ip = ""
 server_port = ""
+agent_port = ""
 db_url = ""
 
 def PreConfig():
     global server_ip
     global server_port
+    global agent_port
     config_file = "agent.ini"
     config = ConfigParser.ConfigParser()
     try:
@@ -33,6 +35,7 @@ def PreConfig():
     try:
         server_ip = config.get("SERVER", "server_ip")
         server_port = config.get("SERVER", "server_port")
+        agent_port = config.get("AGENT", "agent_port")
         db_url = config.get("SQL", "sql_connection")
     except Exception, e:
         pass
@@ -49,6 +52,7 @@ def PreConfig():
 
 
 def main():
+    global agent_port
     PreConfig()
     sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_ip, int(server_port)))
@@ -59,11 +63,26 @@ def main():
             connection.settimeout(5)  
             buf = connection.recv(1024)  
             flow2 = json.loads(buf)
+            #flow2 = {u'src_ip': u'10.10.0.5', u'supression': 0}
             print "Server Received: %s " %(flow2)
-#Server Received: {u'dst_host': u'la', u'src_host': u'mao'}
             print flow2["src_ip"]
+            print flow2["supression"]
+            try:
+                print agent_port
+                send_flow = {"src_ip":flow, "supression":supression}
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((src_ip, int(agent_port)))
+                sock.send(json.dumps(send_flow))
+                sock.recv(1024)
+                print send_flow
+                print json.loads(json.dumps(send_flow))
+                sock.close()
+            except:
+                print "fuck, is the agent got port open right?"
         except socket.timeout:  
             print 'time out'  
+        except:
+            print 'well, something wrong'
         connection.close()   
             
 
