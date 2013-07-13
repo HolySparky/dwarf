@@ -22,6 +22,7 @@ def PreConfig():
     global server_ip
     global server_port
     global agent_port
+    global db_url
     config_file = "agent.ini"
     config = ConfigParser.ConfigParser()
     try:
@@ -58,13 +59,15 @@ def main():
         ip_ports[ip.ip] = {"port":ip.port_name, "host":ip.host_ip}
     print ip_ports
     sup = {}
+#{src_ip:{"supress":sup, "timeleft":time}
     for supress in supressions:
-        sup[supress.src] = "20"
+        sup[supress.supression] = "20"
 #setup sockets
     sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_ip, int(server_port)))
     sock.listen(100)
     while True:  
+        print time.clock()
         connection,address = sock.accept()  
         try:  
             connection.settimeout(5)  
@@ -76,10 +79,18 @@ def main():
                 src_ip = flow2['src_ip']
                 supression = flow2['supression'] 
                 if src_ip in sup:
-                    db.supression.get('src_ip').supression = supression
+                    print "in sup, modify: " + src_ip
+                    db.supression.get(src_ip).supression = supression
+                    db.supression.get(src_ip).time = int(time.time())
+                    db.commit()
                 else:
-                    db.supression.insert(src_ip=src_ip,supression=supression)
-            except:
+                    print "not in, adding: " + src_ip
+                    print supression
+                    db.supression.insert(src_ip=src_ip,supression=supression, time=int(time.time()))
+                    sup[src_ip]=supression
+                    db.commit()
+            except Exception:
+                
                 print "fuck,sql wrong?"
         except socket.timeout:  
             print 'time out'  
