@@ -297,7 +297,7 @@ def get_ports():
         port_map = {}
         #    return [i for i in result.strip().split('\n') if i.startswith('tap')]
         for i in raw_port.strip().split('port'): #for every port
-            port_info = i.split('               ')
+            port_info = i.split('\t\t')
             port_id = port_info[0].split(':')[0]
             port_id = port_id[1:] 
             port_name = port_info[0].split(':')[1][1:]
@@ -309,6 +309,8 @@ def get_ports():
             tx = port_traffic[-3].split(':')[-1]
             if tx=='':
                 tx = '0'
+            if rx == '':
+                rx = '0'
             
             if port_name in ports:
                 ports[port_name].UpdateRates(rx, tx)
