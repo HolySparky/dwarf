@@ -42,18 +42,25 @@ def PreConfig():
     print "readed: server :" + server_ip + "and port: " + server_port
     print "db_url : " + db_url
     
-    options = {"sql_connection": db_url}
-    db = SqlSoup(options["sql_connection"])
-    ips = db.ip_port.all()
-    db.commit()
-    for ip in ips:
-        ip_ports[ip.ip] = {"port":ip.port_name, "host":ip.host_ip}
-    print ip_ports
 
 
 def main():
     global agent_port
+    global db_url
     PreConfig()
+    #read db for ip and supression
+    options = {"sql_connection": db_url}
+    db = SqlSoup(options["sql_connection"])
+    ips = db.ip_port.all()
+    supressions = db.supression.all()
+    db.commit()
+    for ip in ips:
+        ip_ports[ip.ip] = {"port":ip.port_name, "host":ip.host_ip}
+    print ip_ports
+    sup = {}
+    for supress in supressions:
+        sup[supress.src] = "20"
+#setup sockets
     sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_ip, int(server_port)))
     sock.listen(100)
@@ -65,20 +72,15 @@ def main():
             flow2 = json.loads(buf)
             #flow2 = {u'src_ip': u'10.10.0.5', u'supression': 0}
             print "Server Received: %s " %(flow2)
-            print flow2["src_ip"]
-            print flow2["supression"]
             try:
-                print agent_port
-                send_flow = {"src_ip":flow, "supression":supression}
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.connect((src_ip, int(agent_port)))
-                sock.send(json.dumps(send_flow))
-                sock.recv(1024)
-                print send_flow
-                print json.loads(json.dumps(send_flow))
-                sock.close()
+                src_ip = flow2['src_ip']
+                supression = flow2['supression'] 
+                if src_ip in sup:
+                    db.supression.get('src_ip').supression = supression
+                else:
+                    db.supression.insert(src_ip=src_ip,supression=supression)
             except:
-                print "fuck, is the agent got port open right?"
+                print "fuck,sql wrong?"
         except socket.timeout:  
             print 'time out'  
         except:
