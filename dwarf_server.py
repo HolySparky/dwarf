@@ -12,7 +12,6 @@ import simplejson as json
 from optparse import OptionParser
 from sqlalchemy.ext.sqlsoup import SqlSoup
 
-ip_ports = {}
 server_ip = ""
 server_port = ""
 agent_port = ""
@@ -55,13 +54,10 @@ def main():
     ips = db.ip_port.all()
     supressions = db.supression.all()
     db.commit()
-    for ip in ips:
-        ip_ports[ip.ip] = {"port":ip.port_name, "host":ip.host_ip}
-    print ip_ports
     sup = {}
 #{src_ip:{"supress":sup, "timeleft":time}
     for supress in supressions:
-        sup[supress.supression] = "20"
+        sup[supress.src_ip] = "20"
 #setup sockets
     sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((server_ip, int(server_port)))
