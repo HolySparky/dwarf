@@ -480,20 +480,20 @@ def in_flow_feedback():
         print "credit "+ str(credit)
         print "supression "+ str(supression)
         #send supression message to dwarf_server
-    for port in ports:
-        guarantee = ports[port].guarantee * 1000 ** 2
-        rx = ports[port].rx_rate
-        for flow in ports[port].in_flows:
-                if ports[port].in_flows[flow].tx_rate > guarantee:
-                #send the signal
-                    send_flow = {"src_ip":flow, "supression":supression}
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
-                    sock.connect((server_ip, int(server_port)))  
-                    sock.send(json.dumps(send_flow))  
-                    print sock.recv(1024)  
-                    print send_flow
-                    print json.loads(json.dumps(send_flow))
-                    sock.close()  
+        for port in ports:
+            guarantee = ports[port].guarantee * 1000 ** 2
+            rx = ports[port].rx_rate
+            for flow in ports[port].in_flows:
+                    if ports[port].in_flows[flow].tx_rate > guarantee:
+                    #send the signal
+                        send_flow = {"src_ip":flow, "supression":supression}
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
+                        sock.connect((server_ip, int(server_port)))  
+                        sock.send(json.dumps(send_flow))  
+                        print sock.recv(1024)  
+                        print send_flow
+                        print json.loads(json.dumps(send_flow))
+                        sock.close()  
 
 def getSupression():
     global db_url
